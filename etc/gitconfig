@@ -1,6 +1,8 @@
 [core]
 	symlinks = false
-	autocrlf = true
+	autocrlf = false
+	fscache = true
+	preloadindex = true
 [color]
 	diff = auto
 	status = auto

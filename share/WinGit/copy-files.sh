@@ -99,9 +99,6 @@ cp $MSYSGITROOT/etc/inputrc etc/ &&
 sed 's/ = \/mingw\// = \//' < $MSYSGITROOT/etc/gitconfig > etc/gitconfig &&
 cp $MSYSGITROOT/etc/gitattributes etc/ &&
 cp $MSYSGITROOT/share/WinGit/Git\ Bash.vbs . &&
-mkdir git-cheetah &&
-cp $MSYSGITROOT/src/git-cheetah/explorer/git_shell_ext.dll git-cheetah/ &&
-cp $MSYSGITROOT/src/git-cheetah/explorer/git_shell_ext64.dll git-cheetah/ &&
 cp $MSYSGITROOT/share/WinGit/ReleaseNotes.rtf . &&
 sed 's@/git/contrib/completion@/etc@g' \
 	< $MSYSGITROOT/etc/profile > etc/profile &&

@@ -12,6 +12,7 @@
 	packSizeLimit = 2g
 [help]
 	format = html
+	htmlpathalt = ..\\docs\\html
 [http]
 	sslCAinfo = /mingw/bin/curl-ca-bundle.crt
 [sendemail]

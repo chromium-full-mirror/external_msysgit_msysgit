@@ -3,7 +3,7 @@
 	url = https://chromium.googlesource.com/external/msysgit/git
 [submodule "html"]
 	path = doc/git/html
-	url = https://github.com/gitster/git-htmldocs.git
+	url = https://chromium.googlesource.com/external/gitster/git-htmldocs.git
 [submodule "git-cheetah"]
 	path = src/git-cheetah
 	url = https://github.com/msysgit/Git-Cheetah.git

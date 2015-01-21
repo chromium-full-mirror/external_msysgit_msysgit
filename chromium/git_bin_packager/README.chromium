@@ -1,0 +1,12 @@
+Tool to create an archive of a Window git build, for use in depot_tools.
+
+This takes a Portable Git package (as created by the msysgit
+'/share/WinGit/portable-release.sh' script) and repackages it as a zip file,
+which can then be downloaded and installed by gclient on Windows.
+
+Sample workflow (based on 1.8.5.2.chromium.1 release):
+  ./git_bin_packager.py -u file:///temp/PortableGit-1.8.5.2.msysgit.0.1.g01cc1f2.7z -r 1.8.5.2.chromium.1
+  gsutil cp -n git-1.8.5.2.chromium.1_bin.zip gs://chrome-infra/
+  gsutil acl ch -g AllUsers:R gs://chrome-infra/git-1.8.5.2.chromium.1_bin.zip
+  # Update depot_tools/bootstrap/win/win_tools.bat, adding a flag to allow
+  # installing the new git (see existing :GIT*CHECK blocks).

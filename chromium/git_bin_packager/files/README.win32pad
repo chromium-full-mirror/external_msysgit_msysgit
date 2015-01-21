@@ -1,0 +1,26 @@
+depot_tools includes Win32Pad (win32pad_1_5_10_4.zip) taken May 2011.  See
+@@GITDIR@@/win32pad/readme.txt for more information about this distribution.
+
+win32pad can be found online at http://www.gena01.com/win32pad/.  License
+to redistribute is given in Win32Pad's FAQ.  Here are 2 of the relevant
+excerpts describing the software and redistribution license taken on
+May 16, 2011:
+
+  Q: What is Win32Pad?
+  A: Win32Pad is my Notepad replacement. I think that default notepad
+  sucks. After trying to find a small/quick/efficient notepad replacement
+  I decided to write my own. Most of the replacements that I tried
+  were somewhere from 100k executables going to several megs. Some of
+  them were overkill for simple editing jobs and quick hacks that I
+  tend to do. I found a notepad replacement that seemed to provide a
+  decent number of features, but it became shareware (also the size
+  of executable was around 400k). I was looking for a small editor (
+  with standard icons) that would let me quickly view or edit a file.
+
+  Q: Is it Free?
+  A: It's FREEWARE. Which means that you are allowed to use it for
+  personal or commercial purposes (without selling it of course). You
+  are also allowed to give the program to your friends. You are NOT
+  allowed to change the program in any way. If you redistribute the
+  program, please make sure that there is a link to my website (this
+  way people will be able to get a fresh version if one is available).

@@ -1,0 +1,83 @@
+#!/bin/bash
+
+set -e
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
+
+export PATH=/bin:/usr/bin:/usr/local/bin:/mingw/bin
+
+if [ ! -f /THIS_IS_MSYSGIT ]; then
+  die "
+  Please use the msysgit development environment to build.
+  See https://github.com/msysgit/msysgit/wiki/InstallMSysGit"
+fi
+
+cd "$(dirname "$0")"
+SCRIPTDIR="$(pwd -P)"
+
+# Rough attempt to make sure this isn't being run in the checkout where the
+# running shell is located. This compares the Windows paths (pwd -W) because
+# the msys environment sometimes mounts the same Windows path to multiple
+# locations, which could make comparing posix paths fail even when they're
+# actually the same thing.
+cd "$(dirname "$BASH")"
+BASHDIR="$(pwd -W | tr '[:upper:]' '[:lower:]')"
+cd "$SCRIPTDIR/../bin"
+if [ "$(pwd -W | tr '[:upper:]' '[:lower:]')" = "$BASHDIR" ]; then
+  die "
+  It looks like you're running bash from the build checkout.
+  This will prevent switching branches and building msys
+  because Windows can't replace files while they're in use.
+
+  Please use a separate msysgit environment to initiate the build."
+fi
+
+cd "$SCRIPTDIR"
+REPO="$(git config remote.origin.url)"
+START_COMMIT="$(git rev-parse HEAD)"
+SCRIPT_FILE="$(git ls-tree --full-name --name-only $START_COMMIT "$0")"
+
+cd "$SCRIPTDIR/.."
+git diff --no-patch --exit-code HEAD || die "Please commit any unsaved changes."
+git fetch
+
+# Build msys from the chromium-msys branch.
+# To build a more recent msys, rebase chromium-msys from origin/msys and update
+# MSYS_COMMIT to the new hash.
+MSYS_COMMIT=1bf5db138ab835442ed8ae089b569d0e1fad78c7
+git checkout -f "$MSYS_COMMIT"
+
+# Clean out any old build output, so it doesn't interfere with the current build.
+cd "$SCRIPTDIR/../src/msys"
+rm -rf msys/rt/bld/
+
+
+# Start a new shell from the current checkout so it will use the build tools
+# from the msys branch.
+cd "$SCRIPTDIR/../src/rt"
+start //wait "$SCRIPTDIR/../bin/bash.exe" --login -i -c "cd /src/rt && release.sh msys 2>&1 | tee build.log"
+
+BUILT_COMMIT="$(git rev-parse HEAD)"
+if [ "$BUILT_COMMIT" = "$MSYS_COMMIT" ]; then
+  die "
+  It looks like release.sh failed. Check $PWD/build.log for details."
+fi
+
+VERSION_FILE="$SCRIPTDIR/../src/msys/msys/rt/src/winsup/cygwin/include/cygwin/version.h"
+BUILT_VER=$(sed -e '/define CYGWIN_VERSION_DLL_MINOR/!d;s/.\+ \([[:digit:]]\+\).*/\1/' "$VERSION_FILE")
+
+git checkout -f "$START_COMMIT" # origin/chromium-msys
+cd "$SCRIPTDIR/../bin"
+git cherry-pick -x -n --strategy=recursive --strategy-option=theirs "$BUILT_COMMIT"
+git commit -a -m "Updated msys.dll to 1.0.$BUILT_VER + patches.
+
+Build script: $REPO:$SCRIPT_FILE
+Build commit: $START_COMMIT"
+
+
+# TODO(mmoss): Run the clean up script?
+# C:\msysgit-devel\share\msysGit\tmproot\bin\sh.exe --login -i
+# start in: C:/msysgit-devel/share/msysGit/tmproot/bin

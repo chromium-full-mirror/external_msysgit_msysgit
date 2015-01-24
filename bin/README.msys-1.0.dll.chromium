@@ -1,13 +1,12 @@
 URL: http://mingw.org
-Sources: http://sourceforge.net/projects/mingw/files/MSYS/Base/msys-core/msys-1.0.18-1/msysCORE-1.0.18-1-msys-1.0.18-src.tar.lzma/download
-Version: 1.0.18-1
-SHA1: bf78894fcb9ce74e88ea5c7120739170494f158c
+Sources: https://github.com/msysgit/msys.git
+Commit: b4ca4aaba1c45ee13cb52045aaf3d726f73e5e1d
+Version: 1.0.12
 License file: CYGWIN_LICENSE (GPL v2)
 
-This is needed to disable Windows Security integration on platforms which
-normally support it. This means that sh.exe and bash.exe will have less
-capability than normal, but they also avoid a very expensive NetServerEnum()
-call on every run.
+This is needed to remove the use of the very expensive NetServerEnum() function
+on every bash/sh invocation.
 
 Modifications:
-  * all 'has_security' flags are set to false under `winsup\cygwin\wincap.cc`.
+  * Removed call to NetServerEnum() in winsup/cygwin/security.cc
+    (See patch file in 1bf5db138ab835442ed8ae089b569d0e1fad78c7)

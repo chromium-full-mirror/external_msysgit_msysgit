@@ -2,21 +2,25 @@
 
 set -e
 
-die() {
-  echo "$*" >&2
-  exit 1
-}
+if [ "$VERBOSE" ]; then
+  set -x
+fi
 
 export PATH=/bin:/usr/bin:/usr/local/bin:/mingw/bin
 
-if [ ! -f /THIS_IS_MSYSGIT ]; then
-  die "
-  Please use the msysgit development environment to build.
-  See https://github.com/msysgit/msysgit/wiki/InstallMSysGit"
-fi
-
 cd "$(dirname "$0")"
 SCRIPTDIR="$(pwd -P)"
+. "$SCRIPTDIR/shell_utils.sh"
+
+verify_msys
+
+SCRIPT_FILE="$1"
+if [ ! "$SCRIPT_FILE" ]; then
+  die "Usage: $(basename "$0") <git_path_to_wrapper_script>"
+fi
+
+cd "$(git rev-parse --show-toplevel)"
+TOPDIR="$(pwd -P)"
 
 # Rough attempt to make sure this isn't being run in the checkout where the
 # running shell is located. This compares the Windows paths (pwd -W) because
@@ -25,7 +29,7 @@ SCRIPTDIR="$(pwd -P)"
 # actually the same thing.
 cd "$(dirname "$BASH")"
 BASHDIR="$(pwd -W | tr '[:upper:]' '[:lower:]')"
-cd "$SCRIPTDIR/../bin"
+cd "$TOPDIR/bin"
 if [ "$(pwd -W | tr '[:upper:]' '[:lower:]')" = "$BASHDIR" ]; then
   die "
   It looks like you're running bash from the build checkout.
@@ -38,27 +42,31 @@ fi
 cd "$SCRIPTDIR"
 REPO="$(git config remote.origin.url)"
 START_COMMIT="$(git rev-parse HEAD)"
-SCRIPT_FILE="$(git ls-tree --full-name --name-only $START_COMMIT "$0")"
 
-cd "$SCRIPTDIR/.."
-git diff --no-patch --exit-code HEAD || die "Please commit any unsaved changes."
+cd "$TOPDIR"
+echo "Verifying checkout is clean..."
+verify_clean_git
+
+echo "Updating checkout ..."
 git fetch
 
 # Build msys from the chromium-msys branch.
 # To build a more recent msys, rebase chromium-msys from origin/msys and update
 # MSYS_COMMIT to the new hash.
+echo "Checking out msys branch ..."
 MSYS_COMMIT=1bf5db138ab835442ed8ae089b569d0e1fad78c7
 git checkout -f "$MSYS_COMMIT"
 
 # Clean out any old build output, so it doesn't interfere with the current build.
-cd "$SCRIPTDIR/../src/msys"
+cd "$TOPDIR/src/msys"
 rm -rf msys/rt/bld/
-
 
 # Start a new shell from the current checkout so it will use the build tools
 # from the msys branch.
-cd "$SCRIPTDIR/../src/rt"
-start //wait "$SCRIPTDIR/../bin/bash.exe" --login -i -c "cd /src/rt && release.sh msys 2>&1 | tee build.log"
+cd "$TOPDIR/src/rt"
+echo "Running msys build script ..."
+start_and_wait "$TOPDIR/bin/bash.exe" --login -i -c \
+  "cd /src/rt && release.sh msys 2>&1 | tee build.log"
 
 BUILT_COMMIT="$(git rev-parse HEAD)"
 if [ "$BUILT_COMMIT" = "$MSYS_COMMIT" ]; then
@@ -66,16 +74,21 @@ if [ "$BUILT_COMMIT" = "$MSYS_COMMIT" ]; then
   It looks like release.sh failed. Check $PWD/build.log for details."
 fi
 
-VERSION_FILE="$SCRIPTDIR/../src/msys/msys/rt/src/winsup/cygwin/include/cygwin/version.h"
+VERSION_FILE="$TOPDIR/src/msys/msys/rt/src/winsup/cygwin/include/cygwin/version.h"
 BUILT_VER=$(sed -e '/define CYGWIN_VERSION_DLL_MINOR/!d;s/.\+ \([[:digit:]]\+\).*/\1/' "$VERSION_FILE")
 
-git checkout -f "$START_COMMIT" # origin/chromium-msys
-cd "$SCRIPTDIR/../bin"
+echo "Restoring original checkout ..."
+git checkout -f "$START_COMMIT"
+
+echo "Committing new msys binaries ..."
+cd "$TOPDIR/bin"
 git cherry-pick -x -n --strategy=recursive --strategy-option=theirs "$BUILT_COMMIT"
 git commit -a -m "Updated msys.dll to 1.0.$BUILT_VER + patches.
 
-Build script: $REPO:$SCRIPT_FILE
-Build commit: $START_COMMIT"
+Build script:
+  $REPO:$SCRIPT_FILE
+Build commit:
+  $START_COMMIT"
 
 
 # TODO(mmoss): Run the clean up script?

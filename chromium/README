@@ -1,0 +1,87 @@
+Scripts to build and deploy msysgit with Chromium patches.
+
+One-time setup:
+- Install depot_tools and append it to your PATH.
+- Create a ~/.boto file (be sure to use an account that can push to the
+  gs://chrome-infra bucket):
+  - python.bat gsutil.py config -b
+- Clone the repo containing this README (with submodules):
+  git clone <repo_url> && git submodule update --init
+- Run msys.bat in the root of the checkout to do the initial git compile and
+  create shortcuts for starting the msysgit bash shell.
+
+To patch msysgit:
+- Start the msysgit shell from your checkout.
+- cd /
+- Checkout the current chromium branch:
+  - git checkout -b chromium-x.x.x origin/chromium-x.x.x
+- Apply any new Chromium patches and send for review:
+  - git push origin HEAD:refs/for/chromium-x.x.x
+- Repeat all of the above for the corresponding chromium-x.x.x-xp branch :(
+  # TODO(mmoss): Maybe just merge these branches with some ifdefs
+  # (on HAS_WORKING_POPEN?).
+
+To upgrade git:
+- Start the msysgit shell from your checkout.
+- cd /
+- Create a new msysgit branch from the previous chromium branch:
+  - git checkout -b chromium-x.x.x origin/chromium-z.z.z
+- Rebase the new msysgit branch to the appropriate upstream commit:
+  - git rebase refs/tags/Git-x.x.x
+- Create a new git submodule branch from the previous chromium branch:
+  - cd git/
+  - git checkout -b chromium-x.x.x origin/chromium-z.z.z
+- Rebase the new git submodule branch to the appropriate upstream commit:
+  - git rebase refs/tags/vx.x.x
+  - echo 'x.x.x-chromium.0' > version
+  - git add version && git commit -m "Upgrade to git version x.x.x"
+  - git push origin HEAD:refs/heads/chromium-x.x.x
+  - cd ..
+- Update the msysgit branch to use the new git submodule chromium branch:
+  - git add git
+  - git commit -m "Roll git submodule to chromium-x.x.x branch"
+  - git push origin HEAD:refs/heads/chromium-x.x.x
+- Repeat all of the above for the corresponding msysgit and git submodule
+  chromium-x.x.x-xp branches :(
+
+To patch msys-1.0.dll:
+- Start an msysgit shell from _outside_ your checkout (e.g. using the "Git
+  Bash" shortcut created by the "Git for Windows" installer).
+- cd /c/path/to/your/checkout
+- git checkout chromium-msys
+- git submodule update --init src/msys
+- cd src/msys
+- Apply and commit changes.
+- Generate a patch file, e.g.:
+  - git format-patch -1 -o ../rt/patches.chromium/
+- cd ../..
+- Add the patch file to the msysgit chromium branch (see "To patch git:"
+  above).
+- Build and commit the new DLL:
+  - chromium/build_msys.sh
+
+To build the new msysgit for testing:
+- Start the msysgit shell from your checkout.
+- cd /
+- git fetch && git checkout -f chromium-x.x.x && git submodule update
+- cd git && make clean && make && make install
+
+To build and release the new msysgit:
+- Start the msysgit shell from your checkout.
+- cd /
+- git fetch && git checkout -f chromium-x.x.x && git submodule update
+- Bump git version and roll git submodule to include the change.
+  # TODO(mmoss): Add these steps to deploy.sh?
+  - cd git
+  - Bump the last digit (the Chromium release #) in 'version', e.g.:
+    x.x.x-chromium.0 -> x.x.x-chromium.1
+  - git add version && git commit -m "Bump version to chromium.x"
+  - git push origin HEAD:refs/heads/chromium-x.x.x
+  - cd ..
+  - git add git/ && git commit -m "Roll git submodule to chromium.x"
+  - git push origin HEAD:refs/heads/chromium-x.x.x
+- Run 'chromium/deploy.sh' to create and push the depot_tools package.
+- Update GIT_VERSION in depot_tools/bootstrap/win/win_tools.bat to allow
+  installing the new git (update just the "DEPOT_TOOLS_GIT_BLEEDING" version
+  to canary the change).
+- Repeat all of the above for the corresponding chromium-x.x.x-xp branch :(

@@ -7,12 +7,15 @@
 import io
 import optparse
 import os
+import platform
 import re
+import shutil
 import signal
 import stat
 import sys
 import tempfile
 import urllib
+import urlparse
 
 
 # The Git scripts call these exes directly, so we keep them in our distribution.
@@ -45,8 +48,9 @@ BOOTSTRAP_FILES = [
   ('%s/files/gitk.cmd' % SCRIPTDIR, 'cmd'),
   ('%s/files/ssh.cmd' % SCRIPTDIR, 'cmd'),
   ('%s/files/ssh-keygen.cmd' % SCRIPTDIR, 'cmd'),
-  ('%s/files/README.win32pad' % SCRIPTDIR, 'win32pad')
-]
+  ('%s/files/README.win32pad' % SCRIPTDIR, 'win32pad'),
+  (os.path.join(SCRIPTDIR, os.pardir, os.pardir, 'bin',
+    'README.msys-1.0.dll.chromium'), '.') ]
 
 
 class FlushFile(io.TextIOWrapper):
@@ -66,23 +70,30 @@ def main(argv):
   parser = optparse.OptionParser(usage='%prog [options]')
   parser.add_option('-u', '--url', default=None,
                     help='The URL of the portable git archive file.')
+  parser.add_option('-f', '--file', default=None, dest='fname',
+                    help='The local path of the portable git archive file.')
   parser.add_option('-r', '--release', default=None,
                     help='The git release version number (e.g. 1.8.5.2).')
   (opts, args) = parser.parse_args()
 
-  if not (opts.url and opts.release):
-    parser.error('Both --url and --release are required.')
+  if not ((opts.url or opts.fname) and opts.release):
+    parser.error('Both --url|--file and --release are required.')
+    return 1
+
+  if opts.url and opts.fname:
+    parser.error('Please specify either --url or --file, not both.')
     return 1
 
   PORTABLE_GIT_URL = opts.url
-  PORTABLE_GIT_FILE = os.path.basename(PORTABLE_GIT_URL)
+  PORTABLE_GIT_FILE = opts.fname or os.path.basename(PORTABLE_GIT_URL)
   DEPOT_GIT_DIR = 'git-%s_bin' % opts.release
   DEPOT_GIT_FILE = '%s.zip' % DEPOT_GIT_DIR
 
-  tempdir = tempfile.mkdtemp(dir='/tmp')
+  tempdir = tempfile.mkdtemp(dir=os.environ.get('TEMP'))
 
   def RemoveTempdir(tempdir):
-    if not re.match(r'^/tmp/tmp.*', tempdir):
+    if not re.match(r'^%s.*' % os.path.join(os.environ.get('TEMP'), 'tmp'),
+                    tempdir):
       return
     os.system('rm -rf %s' % tempdir)
 
@@ -99,16 +110,23 @@ def main(argv):
   os.mkdir(DEPOT_GIT_DIR)
   os.chdir(DEPOT_GIT_DIR)
 
-  if os.path.exists(PORTABLE_GIT_FILE):
-    print 'ERROR: %s already exists, remove to continue' % PORTABLE_GIT_FILE
-    return 1
-  print 'Downloading Git from %s... ' % PORTABLE_GIT_URL,
-  urllib.urlretrieve(PORTABLE_GIT_URL, PORTABLE_GIT_FILE)
-  print 'done'
+  if PORTABLE_GIT_URL:
+    if os.path.exists(PORTABLE_GIT_FILE):
+      print 'ERROR: %s already exists, remove to continue' % PORTABLE_GIT_FILE
+      return 1
+    print 'Downloading Git from %s... ' % PORTABLE_GIT_URL,
+    urllib.urlretrieve(PORTABLE_GIT_URL, PORTABLE_GIT_FILE)
+    print 'done'
 
   # Exact the original portable git archive.
   print 'Extracting archive...'
-  os.system('p7zip -d %s' % PORTABLE_GIT_FILE)
+  P7ZIP=None
+  if platform.system() == 'Linux':
+    P7ZIP = '7za'  # from p7zip-full package on Trusty
+  else:
+    # Assumed running in chromium msysgit environment.
+    P7ZIP = os.path.join(SCRIPTDIR, os.pardir, os.pardir, 'share', '7-Zip', '7za.exe')
+  os.system('%s x %s' % (P7ZIP, PORTABLE_GIT_FILE))
 
   # Remove unused executables.
   os.chdir('libexec/git-core/')
@@ -153,7 +171,7 @@ def main(argv):
 
   # Create git_bin.zip archive.
   os.chdir('..')
-  os.system('zip -r %s %s' % (DEPOT_GIT_FILE, DEPOT_GIT_DIR))
+  os.system('%s a -tzip %s %s' % (P7ZIP, DEPOT_GIT_FILE, DEPOT_GIT_DIR))
 
   # Set the archive aside.
   os.chdir(SCRIPTDIR)
